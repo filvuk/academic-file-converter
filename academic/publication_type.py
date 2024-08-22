@@ -16,3 +16,22 @@ PUB_TYPES_BIBTEX_TO_CSL = {
     "techreport": "report",
     "unpublished": "manuscript",
 }
+
+# adapted from https://docs.citationstyles.org/en/stable/specification.html#appendix-iii-types
+PUB_TYPES_RIS_TO_CSL = {
+    "JOUR": "article-journal",
+    "EJOUR": "article-journal",
+    "BOOK": "book",
+    "EBOOK": "book",
+    "EDBOOK": "book",
+    "CPAPER": "paper-conference",
+    "CHAP": "chapter",
+    "ECHAP": "chapter",
+    "CONF": "paper-conference",
+    "THES": "thesis",
+    "PAT": "patent",
+    "RPRT": "report",
+    "UNPB": "manuscript",
+    "UNPD": "manuscript",
+    "MANSCPT": "manuscript",
+}

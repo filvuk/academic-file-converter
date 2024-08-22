@@ -6,7 +6,7 @@ import logging
 import sys
 from argparse import RawTextHelpFormatter
 
-from academic.import_bibtex import import_bibtex
+from academic.import_bibtex import import_bibtex, import_ris
 from academic.import_notebook import import_notebook
 
 # Initialise logger.
@@ -36,7 +36,7 @@ def parse_args(args):
 
     # Sub-parser for import command.
     parser_a = subparsers.add_parser("import", help="Import content into your website or book")
-    parser_a.add_argument("input", type=str, help="File path to your BibTeX or Jupyter Notebook file(s)")
+    parser_a.add_argument("input", type=str, help="File path to your BibTeX or Jupyter Notebook file(s) or RIS file(s)")
     parser_a.add_argument("output", type=str, help="Output path (e.g. `content/publication/`)")
     parser_a.add_argument("--featured", action="store_true", help="Flag publications as featured")
     parser_a.add_argument("--overwrite", action="store_true", help="Overwrite existing files in output path")
@@ -84,6 +84,17 @@ def parse_args(args):
                     known_args.input,
                     output_dir=known_args.output,
                     overwrite=known_args.overwrite,
+                    dry_run=known_args.dry_run,
+                )
+            elif known_args.input.lower().endswith(".ris"):
+                # Run command to import RIS.
+                import_ris(
+                    known_args.input,
+                    pub_dir=known_args.output,
+                    featured=known_args.featured,
+                    overwrite=known_args.overwrite,
+                    normalize=known_args.normalize,
+                    compact=known_args.compact,
                     dry_run=known_args.dry_run,
                 )
 
