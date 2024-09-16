@@ -34,4 +34,5 @@ PUB_TYPES_RIS_TO_CSL = {
     "UNPB": "manuscript",
     "UNPD": "manuscript",
     "MANSCPT": "manuscript",
+    "DATA": "dataset",
 }
