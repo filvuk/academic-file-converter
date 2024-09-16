@@ -13,3 +13,5 @@ site/
 
 # Trial runs
 output/
+*.ris
+*.bib
