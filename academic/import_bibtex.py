@@ -301,19 +301,25 @@ def parse_ris_entry(
         date_tag = "publication_year"
     elif "date" in entry:
         date_tag = "date"
+    elif "year" in entry:
+        date_tag = "year"
     else:
-        date_tag = "publication_year"
+        raise ValueError(f"Neither a date nor a year was set for entry {identifier}!")
 
     # set default dates, in case they are not available
     default_date_parts = ["", "01", "01"]
-    date_parts = entry[date_tag].split("/")
-    for i, (part, default_part) in enumerate(zip(date_parts[:3], default_date_parts)):
-        # pad leading zeroes for month and day
-        if i > 0:
-            date_parts[i] = part.zfill(2)
+    # date list either containing year, month, day set in .ris, or padded empty strings
+    date_parts = entry[date_tag].split("/")[:3] + [""] * (3 - len(entry[date_tag].split("/")))
+    assert len(date_parts) == 3
+    for i, (part, default_part) in enumerate(zip(date_parts, default_date_parts)):
         # set default if field is missing
-        if part == "":
+        if part is None or part == "":
             date_parts[i] = default_part
+        else:
+            date_parts[i] = part
+            # pad leading zeroes for month and day
+            if i > 0:
+                date_parts[i] = part.zfill(2)
     # year was not set -> error
     if date_parts[0] == "":
         log.error(f'Invalid date for entry `{identifier}`.')
