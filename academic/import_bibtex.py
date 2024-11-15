@@ -17,6 +17,20 @@ from rispy.utils import convert_reference_types
 from academic.generate_markdown import GenerateMarkdown
 from academic.publication_type import PUB_TYPES_BIBTEX_TO_CSL, PUB_TYPES_RIS_TO_CSL
 
+SHORTHAND_MONTH_TO_NUMBER = {
+    "Jan": "01",
+    "Feb": "02",
+    "Mar": "03",
+    "Apr": "04",
+    "May": "05",
+    "Jun": "06",
+    "Jul": "07",
+    "Aug": "08",
+    "Sep": "09",
+    "Oct": "10",
+    "Nov": "11",
+    "Dec": "12",
+}
 
 def import_bibtex(
     bibtex,
@@ -255,8 +269,8 @@ def parse_ris_entry(
     bundle_path = os.path.join(pub_dir,identifier)
     markdown_path = os.path.join(bundle_path, "index.md")
     cite_path = os.path.join(bundle_path, "cite.ris")
-    date = datetime.utcnow()
-    timestamp = date.isoformat("T") + "Z"  # RFC 3339 timestamp.
+    now = datetime.utcnow()
+    timestamp = now.isoformat("T") + "Z"  # RFC 3339 timestamp.
 
     # Do not overwrite publication bundle if it already exists.
     if not overwrite and os.path.isdir(bundle_path):
@@ -295,37 +309,61 @@ def parse_ris_entry(
         title = entry["title"]
     page.yaml["title"] = clean_str(title)
 
-    # try to fetch date from Y1 first (assuming it is set as an actual date and not just a year), then from DA (which can
-    # mean things other than publication date) and lastly from PY (which is always the year only).
-    if "publication_year" in entry:
-        date_tag = "publication_year"
-    elif "date" in entry:
-        date_tag = "date"
-    elif "year" in entry:
-        date_tag = "year"
+    # NOTE: from example exports it can be gathered that:
+    # - PY seems to always be set and contains the publication year, and it is always four digits
+    # - Y1 is a synonym of PY, but never set
+    # - ET contains some date and is rarely set. Also, its formatting varies between YYYY/MM/DD and YYYYMMDD
+    # - DA contains some date and is sometimes set. Its formatting vaires between shorthand month day (i.e. Dec 8) and 
+    # YYYY/MM/DD
+    # So, first fetch the year from PY, or from Y1. For month and date, throw a dice and decide on prioritizing DA since
+    # it is set more often. Also, ET seems to only be set when DA is also set.
+
+    if "year" in entry:
+        publication_year = entry["year"]
+    elif "publication_year" in entry:
+        publication_year = entry["publication_year"]
     else:
-        raise ValueError(f"Neither a date nor a year was set for entry {identifier}!")
+        raise ValueError(f"No publication year found for entry {identifier}!")
 
-    # set default dates, in case they are not available
-    default_date_parts = ["", "01", "01"]
-    # date list either containing year, month, day set in .ris, or padded empty strings
-    date_parts = entry[date_tag].split("/")[:3] + [""] * (3 - len(entry[date_tag].split("/")))
-    assert len(date_parts) == 3
-    for i, (part, default_part) in enumerate(zip(date_parts, default_date_parts)):
-        # set default if field is missing
-        if part is None or part == "":
-            date_parts[i] = default_part
+    if "date" in entry:
+        # either YYYY/MM/DD or shorthand month day
+        date = entry["date"]
+    elif "edition" in entry:
+        # either YYYY/MM/DD or YYYYMMDD
+        date = entry["edition"]
+    else:
+        date = ""
+
+    if len(date.split("/")) == 1:
+        # no slashes are present, either YYYYMMDD or shorthand month day
+        if len(date.strip().split(" ")) == 1:
+            # YYYYMMDD
+            other_year = date[:4]
+            month = date[4:6]
+            day = date[6:8]
         else:
-            date_parts[i] = part
-            # pad leading zeroes for month and day
-            if i > 0:
-                date_parts[i] = part.zfill(2)
-    # year was not set -> error
-    if date_parts[0] == "":
-        log.error(f'Invalid date for entry `{identifier}`.')
+            # shorthand month day
+            date = date.split(" ")
+            month = SHORTHAND_MONTH_TO_NUMBER[date[0]]
+            day = f"{int(date[1]):02d}"
+            other_year = ""
+    else:
+        # YYYY/MM/DD
+        date = date.split("/")
+        other_year, month, day  = date[:3]
 
-    page.yaml["date"] = f"{date_parts[0]}-{date_parts[1]}-{date_parts[2]}"
+    page.yaml["publication_year"] = publication_year
     page.yaml["publishDate"] = timestamp
+    if date:
+        # WARN: if other_date is not set, we need to select some year for sorting to work. Combining publication_year
+        # with the remaining date can lead to wrong dates.
+        # TODO: warn about this potential error
+        yaml_date = f"{other_year if other_year else publication_year}-{month}-{day}"
+    else:
+        # no date was found, use publication year with default month and day as date
+        yaml_date = f"{publication_year}-01-01"
+    print(f"Writing {yaml_date} for {identifier}...")
+    page.yaml["date"] = yaml_date
 
     # assume all authors are listed as AU, otherwise pull from A1
     authors = None
@@ -386,6 +424,14 @@ def parse_ris_entry(
         publication_short = ""
     page.yaml["publication_short"] = publication_short
 
+    # get volume number:
+    if "volume" in entry:
+        page.yaml["volume"] = entry["volume"]
+
+    # fetch page numbers/eLocators from start_page entry, corresponding to SP
+    if "start_page" in entry:
+        page.yaml["locator"] = entry["start_page"]
+
     if "keywords" in entry:
         keywords = entry["keywords"]
         if normalize:
@@ -394,6 +440,8 @@ def parse_ris_entry(
 
     if "doi" in entry:
         page.yaml["doi"] = clean_str(entry["doi"])
+    else:
+        log.warn(f"DOI not found for entry {identifier}!")
 
     links = []
     if "urls" in entry:
