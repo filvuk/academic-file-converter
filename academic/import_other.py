@@ -330,7 +330,6 @@ def parse_ris_entry(
     page.yaml["publication_year"] = publication_year
     log.info(f"Wrote publication year {publication_year}.")
 
-
     if "date" in entry:
         # either YYYY/MM/DD or shorthand month day
         date = entry["date"]
@@ -453,7 +452,6 @@ def parse_ris_entry(
     if "start_page" in entry:
         page.yaml["locator"] = entry["start_page"]
         log.info(f"Wrote locator {entry["start_page"]}.")
-
 
     if "keywords" in entry:
         keywords = entry["keywords"]
