@@ -32,6 +32,7 @@ SHORTHAND_MONTH_TO_NUMBER = {
     "Dec": "12",
 }
 
+
 def import_bibtex(
     bibtex,
     pub_dir=os.path.join("content", "publication"),
@@ -266,7 +267,7 @@ def parse_ris_entry(
     log.info(f"Parsing entry {identifier}")
 
     # since IDs are not necessarily set for RIS files, use the DOI.
-    bundle_path = os.path.join(pub_dir,identifier)
+    bundle_path = os.path.join(pub_dir, identifier)
     markdown_path = os.path.join(bundle_path, "index.md")
     cite_path = os.path.join(bundle_path, "cite.ris")
     now = datetime.utcnow()
@@ -313,7 +314,7 @@ def parse_ris_entry(
     # - PY seems to always be set and contains the publication year, and it is always four digits
     # - Y1 is a synonym of PY, but never set
     # - ET contains some date and is rarely set. Also, its formatting varies between YYYY/MM/DD and YYYYMMDD
-    # - DA contains some date and is sometimes set. Its formatting vaires between shorthand month day (i.e. Dec 8) and 
+    # - DA contains some date and is sometimes set. Its formatting vaires between shorthand month day (i.e. Dec 8) and
     # YYYY/MM/DD
     # So, first fetch the year from PY, or from Y1. For month and date, throw a dice and decide on prioritizing DA since
     # it is set more often. Also, ET seems to only be set when DA is also set.
@@ -350,7 +351,7 @@ def parse_ris_entry(
     else:
         # YYYY/MM/DD
         date = date.split("/")
-        other_year, month, day  = date[:3]
+        other_year, month, day = date[:3]
 
     page.yaml["publication_year"] = publication_year
     page.yaml["publishDate"] = timestamp
@@ -406,7 +407,7 @@ def parse_ris_entry(
     page.yaml["featured"] = featured
 
     # This field is Markdown formatted, wrapping the publication name in `*` for italics
-    # HACK: When JF is present, fetch it. Otherwise, it is assumed that the journal name is present in T2, which 
+    # HACK: When JF is present, fetch it. Otherwise, it is assumed that the journal name is present in T2, which
     # unfortunately is not true in all cases. Thus, only do this for certain publication types.
     if "alternate_title3" in entry:
         publication = "*" + clean_str(entry["alternate_title3"]) + "*"
@@ -512,6 +513,7 @@ def clean_authors(author_str):
 
     return authors
 
+
 def clean_str(s):
     """Clean string and escape TOML special characters"""
     s = s.replace("\\", "")
@@ -519,6 +521,7 @@ def clean_str(s):
     s = s.replace("{", "").replace("}", "")
     s = s.replace("\t", " ").replace("\n", " ").replace("\r", "")
     return s
+
 
 def clean_bibtex_tags(s, normalize=False):
     """Clean keywords and convert to TOML tags"""
@@ -530,6 +533,7 @@ def clean_bibtex_tags(s, normalize=False):
         tags = [tag.lower().capitalize() for tag in tags]
 
     return tags
+
 
 def month2number(month):
     """Convert BibTeX or BibLateX month to numeric"""
