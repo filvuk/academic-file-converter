@@ -337,7 +337,7 @@ def parse_ris_entry(
         # either YYYY/MM/DD or YYYYMMDD
         date = entry["edition"]
     else:
-        log.error(f"Date not found in DA or ET of .ris file for identifier {identifier}!")
+        log.warning(f"Date not found in DA or ET of .ris file for identifier {identifier}!")
         date = ""
         # no date was found, use publication year with default month and day as date
 
