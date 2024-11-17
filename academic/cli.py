@@ -6,7 +6,7 @@ import logging
 import sys
 from argparse import RawTextHelpFormatter
 
-from academic.import_bibtex import import_bibtex, import_ris
+from academic.import_other import import_bibtex, import_ris
 from academic.import_notebook import import_notebook
 
 # Initialise logger.
