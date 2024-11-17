@@ -275,7 +275,7 @@ def parse_ris_entry(
 
     # Do not overwrite publication bundle if it already exists.
     if not overwrite and os.path.isdir(bundle_path):
-        log.warning(f"Skipping creation of {bundle_path} as it already exists. " f"To overwrite, add the `--overwrite` argument.")
+        log.info(f"Skipping creation of {bundle_path} as it already exists. " f"To overwrite, add the `--overwrite` argument.")
         return
 
     # Create bundle dir.
@@ -309,6 +309,7 @@ def parse_ris_entry(
     else:
         title = entry["title"]
     page.yaml["title"] = clean_str(title)
+    log.info(f"Wrote title {clean_str(title)}.")
 
     # NOTE: from example exports it can be gathered that:
     # - PY seems to always be set and contains the publication year, and it is always four digits
@@ -324,7 +325,11 @@ def parse_ris_entry(
     elif "publication_year" in entry:
         publication_year = entry["publication_year"]
     else:
-        raise ValueError(f"No publication year found for entry {identifier}!")
+        log.error(f"No publication year found for entry {identifier}!")
+        publication_year = ""
+    page.yaml["publication_year"] = publication_year
+    log.info(f"Wrote publication year {publication_year}.")
+
 
     if "date" in entry:
         # either YYYY/MM/DD or shorthand month day
@@ -333,38 +338,44 @@ def parse_ris_entry(
         # either YYYY/MM/DD or YYYYMMDD
         date = entry["edition"]
     else:
+        log.error(f"Date not found in DA or ET of .ris file for identifier {identifier}!")
         date = ""
+        # no date was found, use publication year with default month and day as date
 
-    if len(date.split("/")) == 1:
-        # no slashes are present, either YYYYMMDD or shorthand month day
-        if len(date.strip().split(" ")) == 1:
-            # YYYYMMDD
-            other_year = date[:4]
-            month = date[4:6]
-            day = date[6:8]
-        else:
-            # shorthand month day
-            date = date.split(" ")
-            month = SHORTHAND_MONTH_TO_NUMBER[date[0]]
-            day = f"{int(date[1]):02d}"
-            other_year = ""
-    else:
-        # YYYY/MM/DD
-        date = date.split("/")
-        other_year, month, day = date[:3]
-
-    page.yaml["publication_year"] = publication_year
+    yaml_date = f"{publication_year}-01-01"
     page.yaml["publishDate"] = timestamp
+    log.info(f"Wrote publish date {timestamp}.")
     if date:
+        if len(date.split("/")) == 1:
+            # no slashes are present, either YYYYMMDD or shorthand month day
+            if len(date.strip().split(" ")) == 1:
+                # YYYYMMDD
+                other_year = date[:4]
+                month = date[4:6]
+                day = date[6:8]
+            else:
+                # shorthand month day
+                date = date.split(" ")
+                month = SHORTHAND_MONTH_TO_NUMBER[date[0]]
+                day = f"{int(date[1]):02d}"
+                other_year = ""
+        else:
+            # YYYY/MM/DD
+            date = date.split("/")
+            other_year, month, day = date[:3]
+
         # WARN: if other_date is not set, we need to select some year for sorting to work. Combining publication_year
         # with the remaining date can lead to wrong dates.
-        # TODO: warn about this potential error
+        if not other_year:
+            log.warn(
+                (
+                    f"Could not find proper year corresponding to the found date for identifier {identifier}!"
+                    " Defaulting to publication year. This might lead to a wrong date!"
+                )
+            )
         yaml_date = f"{other_year if other_year else publication_year}-{month}-{day}"
-    else:
-        # no date was found, use publication year with default month and day as date
-        yaml_date = f"{publication_year}-01-01"
-    print(f"Writing {yaml_date} for {identifier}...")
     page.yaml["date"] = yaml_date
+    log.info(f"Wrote date {yaml_date}.")
 
     # assume all authors are listed as AU, otherwise pull from A1
     authors = None
@@ -375,6 +386,7 @@ def parse_ris_entry(
 
     if authors:
         page.yaml["authors"] = clean_authors(authors)
+        log.info(f"Wrote authors {clean_authors(authors)}.")
     else:
         log.error(f"No authors present for RIS entry '{identifier}'!")
 
@@ -391,6 +403,7 @@ def parse_ris_entry(
             pub_type = default_csl_type
 
     page.yaml["publication_types"] = [pub_type]
+    log.info(f"Wrote publication type {pub_type}.")
 
     abstract_tag = None
     if "abstract" in entry:
@@ -400,22 +413,27 @@ def parse_ris_entry(
         # TODO: Remove the word "Abstract" if that is the case most of the time
         abstract_tag = "notes_abstract"
     if abstract_tag is not None:
-        page.yaml["abstract"] = clean_str(entry[abstract_tag])
+        abstract = clean_str(entry[abstract_tag])
     else:
-        page.yaml["abstract"] = ""
+        abstract = ""
+
+    page.yaml["abstract"] = abstract
+    log.info(f"Wrote abstract {abstract}.")
 
     page.yaml["featured"] = featured
 
     # This field is Markdown formatted, wrapping the publication name in `*` for italics
-    # HACK: When JF is present, fetch it. Otherwise, it is assumed that the journal name is present in T2, which
-    # unfortunately is not true in all cases. Thus, only do this for certain publication types.
+    # NOTE: When JF is present, fetch it. Otherwise, it is assumed that the journal name is present in T2.
+    # Only do this for certain publication types.
     if "alternate_title3" in entry:
         publication = "*" + clean_str(entry["alternate_title3"]) + "*"
     elif "secondary_title" in entry and entry["type_of_reference"] in ("JOUR", "EJOUR"):
         publication = "*" + clean_str(entry["secondary_title"]) + "*"
     else:
+        log.error(f"Did not find publication name for identifier {identifier}!")
         publication = ""
     page.yaml["publication"] = publication
+    log.info(f"Wrote publication name {publication}.")
 
     # Publication abbreviated name (JO).
     # This field is Markdown formatted, wrapping the publication name in `*` for italics
@@ -424,23 +442,29 @@ def parse_ris_entry(
     else:
         publication_short = ""
     page.yaml["publication_short"] = publication_short
+    log.info(f"Wrote publication abbreviated name {publication_short}.")
 
     # get volume number:
     if "volume" in entry:
         page.yaml["volume"] = entry["volume"]
+        log.info(f"Wrote volume {entry["volume"]}.")
 
     # fetch page numbers/eLocators from start_page entry, corresponding to SP
     if "start_page" in entry:
         page.yaml["locator"] = entry["start_page"]
+        log.info(f"Wrote locator {entry["start_page"]}.")
+
 
     if "keywords" in entry:
         keywords = entry["keywords"]
         if normalize:
             keywords = [keyword.lower().capitalize() for keyword in keywords]
         page.yaml["tags"] = keywords
+        log.info(f"Wrote keywords {keywords}.")
 
     if "doi" in entry:
         page.yaml["doi"] = clean_str(entry["doi"])
+        log.info(f"Wrote DOI {clean_str(entry["doi"])}.")
     else:
         log.warn(f"DOI not found for entry {identifier}!")
 
@@ -456,6 +480,7 @@ def parse_ris_entry(
 
     if links:
         page.yaml["links"] = links
+        log.info(f"Wrote links {links}.")
 
     # Save Markdown file.
     try:
@@ -463,7 +488,7 @@ def parse_ris_entry(
         if not dry_run:
             page.dump()
     except IOError:
-        log.error("Could not save file.")
+        log.error("Could not save file!")
     return page
 
 
